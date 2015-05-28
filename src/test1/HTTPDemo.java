@@ -4,6 +4,7 @@ package test1;
  * Created by cathym on 2015/5/26.
  */
 
+import org.apache.commons.cli.*;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHost;
 import org.apache.http.HttpVersion;
@@ -25,15 +26,33 @@ import java.net.InetAddress;
 
 public class HTTPDemo{
     public static void main(String[] args) throws Exception {
+        Options options = new Options();
 
+        // Ìí¼Ó -h ²ÎÊý
+        options.addOption("h", false, "Lists short help");
+
+        // Ìí¼Ó -t ²ÎÊý
+        options.addOption("t", true, "Sets the HTTP communication protocol for CIM connection");
+        CommandLineParser parser = new PosixParser();
+        CommandLine cmd = parser.parse(options, args);
+
+        if(cmd.hasOption("h")) {
+            // ÕâÀïÏÔÊ¾¼ò¶ÌµÄ°ïÖúÐÅÏ¢
+        }
+        String protocol = cmd.getOptionValue("t");
+
+        if(protocol == null) {
+            // ÉèÖÃÄ¬ÈÏµÄ HTTP ´«ÊäÐ­Òé
+        } else {
+            // ÉèÖÃÓÃ»§×Ô¶¨ÒåµÄ HTTP ´«ÊäÐ­Òé
+        }
         String username = "username";
         String password = "password";
-        ProtocolVersion httpVersion1_0 = HttpVersion.HTTP_1_0;
-        ProtocolVersion httpVersion1_1 = HttpVersion.HTTP_1_1;
-
-
-        System.out.println(args[0]);
-        System.out.println(args[1]);
+        ProtocolVersion httpVersion = HttpVersion.HTTP_1_0;
+        if(protocol=="Http1.0")
+            httpVersion = HttpVersion.HTTP_1_0;
+        else
+            httpVersion = HttpVersion.HTTP_1_1;
 //        HttpHost proxy = new HttpHost("10.108.147.241", 80);
 //        DefaultProxyRoutePlanner routePlanner = new DefaultProxyRoutePlanner(proxy);
 //        CloseableHttpClient httpclient = HttpClients.custom().setRoutePlanner(routePlanner).build();
@@ -43,7 +62,7 @@ public class HTTPDemo{
             HttpPost httppost = new HttpPost("http://192.168.0.10:80"); //https://iam-fed.juniper.net/auth/ilogin.html
             //ï¿½ï¿½ï¿½ï¿½http version
             RequestConfig config = RequestConfig.custom().setLocalAddress(InetAddress.getByName(arg)).build();
-            httppost.setProtocolVersion(httpVersion1_1);
+            httppost.setProtocolVersion(httpVersion);
             httppost.setConfig(config);
 
             StringEntity stringEntity = new StringEntity("hehe");
@@ -53,12 +72,13 @@ public class HTTPDemo{
             httppost.setHeader("Content-Type", "application/x-www-form-urlencoded");
             httppost.addHeader("username", username);
             httppost.addHeader("password", password);
-            try{
+            try {
                 System.out.println("executing request " + httppost.getURI());
                 CloseableHttpResponse response = httpclient.execute(httppost);
                 try {
                     HttpEntity entity = response.getEntity();
                     if (entity != null) {
+
                         System.out.println("--------------------------------------");
                         System.out.println("Response content: " + EntityUtils.toString(entity, "UTF-8"));
                         System.out.println("--------------------------------------");
@@ -83,7 +103,7 @@ public class HTTPDemo{
                 }
             }
         }
-        // ï¿½ï¿½ï¿½ï¿½httppost,ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½httpsï¿½ï¿½Õ¾Ò²ï¿½Ç¿ï¿½ï¿½Ôµï¿½
+        // ï¿½ï¿½ï¿½ï¿½httppost,ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿?httpsï¿½ï¿½Õ¾Ò²ï¿½Ç¿ï¿½ï¿½Ôµï¿½
 
 
     }
