@@ -1,0 +1,18 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="Post:jar">
+    <output-path>$PROJECT_DIR$/out/artifacts/Post_jar</output-path>
+    <root id="archive" name="Post.jar">
+      <element id="module-output" name="Post" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/../lib/jna-4.1.0.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/../lib/jna-platform-4.1.0.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/../lib/httpclient-cache-4.4.1.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/../lib/httpclient-4.4.1.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/../lib/commons-codec-1.9.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/../lib/fluent-hc-4.4.1.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/../lib/httpclient-win-4.4.1.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/../lib/commons-logging-1.2.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/../lib/httpcore-4.4.1.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/../lib/httpmime-4.4.1.jar" path-in-jar="/" />
+    </root>
+  </artifact>
+</component>
