@@ -15,76 +15,121 @@ import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
-import org.apache.http.impl.conn.DefaultProxyRoutePlanner;
 import org.apache.http.util.EntityUtils;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.InetAddress;
+import java.net.UnknownHostException;
+
+
+class NewThread implements Runnable{
+
+    static int numberOfSuccess = 0;
+
+    String username = null;
+    String password = null;
+    String destIP = null;
+    String sourceIP = null;
+    ProtocolVersion httpVersion = HttpVersion.HTTP_1_0;  //HttpVersion.HTTP_1_1
+    Thread t;
+
+    NewThread(String usernameT, String passwordT, String destIPT, ProtocolVersion httpVersionT, String sourceIPT) {
+        // 创建第二个新线程
+        username = usernameT;
+        password = passwordT;
+        destIP = destIPT;
+        httpVersion = httpVersionT;
+        sourceIP = sourceIPT;
+
+       ;
+        t = new Thread(this, "Demo Thread");
+        System.out.println("Child thread: " + t);
+        t.run();
+//        t.start(); // 开始线程
+    }
+
+    @Override
+    public void run() {
+        System.out.println("Begin" );
+        CloseableHttpClient httpclient = HttpClients.createDefault();
+        HttpPost httppost = new HttpPost(destIP); //https://iam-fed.juniper.net/auth/ilogin.html
+        //����http version
+        RequestConfig config = null;
+        try {
+            config = RequestConfig.custom().setLocalAddress(InetAddress.getByName(sourceIP)).build();
+        } catch (UnknownHostException e) {
+            e.printStackTrace();
+        }
+        httppost.setProtocolVersion(httpVersion);
+        httppost.setConfig(config);
+
+        StringEntity stringEntity = null;
+        try {
+            stringEntity = new StringEntity("hehe");
+        } catch (UnsupportedEncodingException e) {
+            e.printStackTrace();
+        }
+        stringEntity.setContentType("application/xml");
+        stringEntity.setContentEncoding("UTF-8");
+        httppost.setEntity(stringEntity);
+
+        httppost.setHeader("Content-Type", "application/x-www-form-urlencoded");
+        httppost.addHeader("username", username);
+        httppost.addHeader("password", password);
+        try{
+            System.out.println("executing request " + httppost.getURI());
+            CloseableHttpResponse response = httpclient.execute(httppost);
+            try {
+                System.out.println(response.getStatusLine());
+
+                if(response.getStatusLine().getStatusCode() == 200){
+                    numberOfSuccess ++;
+                }
+            }catch(Exception e ) {
+                e.printStackTrace();
+            }finally {
+                response.close();
+            }
+        } catch (ClientProtocolException e) {
+            e.printStackTrace();
+        } catch (UnsupportedEncodingException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            try {
+                httpclient.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+}
 
 
 public class HTTPDemo{
+
     public static void main(String[] args) throws Exception {
+        String username = args[0];
+        String password = args[1];
+        String destIP = args[2];
+        ProtocolVersion httpVersion = HttpVersion.HTTP_1_1;
+        if(args[3].equals("0")){
+            httpVersion = HttpVersion.HTTP_1_0;
+        }
 
-        String username = "username";
-        String password = "password";
-        ProtocolVersion httpVersion1_0 = HttpVersion.HTTP_1_0;
-        ProtocolVersion httpVersion1_1 = HttpVersion.HTTP_1_1;
-
-
-        System.out.println(args[0]);
-        System.out.println(args[1]);
-//        HttpHost proxy = new HttpHost("10.108.147.241", 80);
-//        DefaultProxyRoutePlanner routePlanner = new DefaultProxyRoutePlanner(proxy);
-//        CloseableHttpClient httpclient = HttpClients.custom().setRoutePlanner(routePlanner).build();
-
-        for (String arg : args) {
-            CloseableHttpClient httpclient = HttpClients.createDefault();
-            HttpPost httppost = new HttpPost("http://192.168.0.10:80"); //https://iam-fed.juniper.net/auth/ilogin.html
-            //����http version
-            RequestConfig config = RequestConfig.custom().setLocalAddress(InetAddress.getByName(arg)).build();
-            httppost.setProtocolVersion(httpVersion1_1);
-            httppost.setConfig(config);
-
-            StringEntity stringEntity = new StringEntity("hehe");
-            stringEntity.setContentType("application/xml");
-            stringEntity.setContentEncoding("UTF-8");
-            httppost.setEntity(stringEntity);
-            httppost.setHeader("Content-Type", "application/x-www-form-urlencoded");
-            httppost.addHeader("username", username);
-            httppost.addHeader("password", password);
-            try{
-                System.out.println("executing request " + httppost.getURI());
-                CloseableHttpResponse response = httpclient.execute(httppost);
-                try {
-                    HttpEntity entity = response.getEntity();
-                    if (entity != null) {
-                        System.out.println("--------------------------------------");
-                        System.out.println("Response content: " + EntityUtils.toString(entity, "UTF-8"));
-                        System.out.println("--------------------------------------");
-                    }
-                    System.out.println(response.getStatusLine());
-
-                } finally {
-                    response.close();
-                }
-            } catch (ClientProtocolException e) {
-                e.printStackTrace();
-            } catch (UnsupportedEncodingException e) {
-                e.printStackTrace();
-            } catch (IOException e) {
-                e.printStackTrace();
-            } finally {
-                // �ر�����,�ͷ���Դ
-                try {
-                    httpclient.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
+        int numberOfPost = args.length - 4;
+        if(numberOfPost == 0){
+            NewThread post = new NewThread(username,password,destIP,httpVersion,InetAddress.getLocalHost().getHostAddress().toString());
+        }else{
+            for(int i=0;i<numberOfPost;i++){
+                new NewThread(username,password,destIP,httpVersion,args[i+4]);
             }
         }
-        // ����httppost,�������https��վҲ�ǿ��Ե�
-
+//
+        System.out.println("numberOfSuccessPost : "+NewThread.numberOfSuccess);
 
     }
 }
