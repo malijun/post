@@ -35,7 +35,7 @@ class NewThread implements Runnable{
     Thread t;
 
     NewThread(String usernameT, String passwordT, String destIPT, ProtocolVersion httpVersionT, String sourceIPT) {
-        // 创建第二个新线程
+        // 创建新线程
         username = usernameT;
         password = passwordT;
         destIP = destIPT;
@@ -45,8 +45,7 @@ class NewThread implements Runnable{
        ;
         t = new Thread(this, "Demo Thread");
         System.out.println("Child thread: " + t);
-        t.run();
-//        t.start(); // 开始线程
+        t.start(); // 开始线程
     }
 
     @Override
@@ -119,12 +118,17 @@ public class HTTPDemo{
         if(args[3].equals("0")){
             httpVersion = HttpVersion.HTTP_1_0;
         }
+        int postNumber = Integer.parseInt(args[4]);
+        int timeInterval = Integer.parseInt(args[5]);
 
-        int numberOfPost = args.length - 4;
-        if(numberOfPost == 0){
-            NewThread post = new NewThread(username,password,destIP,httpVersion,InetAddress.getLocalHost().getHostAddress().toString());
+        int concurrentIP = args.length - 4; //get number of concurrent IP
+        if(concurrentIP == 0){
+            for(int i = 0; i<postNumber; i++){
+                new NewThread(username,password,destIP,httpVersion,InetAddress.getLocalHost().getHostAddress().toString());
+                Thread.sleep(timeInterval/1000);
+            }
         }else{
-            for(int i=0;i<numberOfPost;i++){
+            for(int i=0;i<concurrentIP;i++){
                 new NewThread(username,password,destIP,httpVersion,args[i+4]);
             }
         }
