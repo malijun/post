@@ -1,0 +1,21 @@
+<component name="libraryTable">
+  <library name="apidocs">
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/lib/commons-cli-1.3/commons-cli-1.3-tests.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/commons-cli-1.3/commons-cli-1.3.jar!/" />
+      <root url="file://$PROJECT_DIR$/lib/apache-log4j-2.3-bin" />
+      <root url="jar://$PROJECT_DIR$/lib/commons-logging-1.2.jar!/" />
+    </CLASSES>
+    <JAVADOC>
+      <root url="jar://$PROJECT_DIR$/lib/commons-cli-1.3-bin.zip!/commons-cli-1.3/apidocs" />
+      <root url="jar://$PROJECT_DIR$/lib/commons-cli-1.3/commons-cli-1.3-javadoc.jar!/" />
+    </JAVADOC>
+    <SOURCES>
+      <root url="jar://$PROJECT_DIR$/lib/commons-cli-1.3/commons-cli-1.3-sources.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/commons-cli-1.3/commons-cli-1.3-test-sources.jar!/" />
+      <root url="file://$PROJECT_DIR$/lib/apache-log4j-2.3-bin" />
+    </SOURCES>
+    <jarDirectory url="file://$PROJECT_DIR$/lib/apache-log4j-2.3-bin" recursive="false" />
+    <jarDirectory url="file://$PROJECT_DIR$/lib/apache-log4j-2.3-bin" recursive="false" type="SOURCES" />
+  </library>
+</component>
