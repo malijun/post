@@ -8,18 +8,23 @@ import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.Options;
+import org.apache.http.HttpHost;
 import org.apache.http.HttpVersion;
 import org.apache.http.ProtocolVersion;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
+import org.apache.http.client.AuthCache;
 import org.apache.http.client.CredentialsProvider;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPost;
+import org.apache.http.client.protocol.HttpClientContext;
 import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
 import org.apache.http.conn.ssl.SSLContextBuilder;
 import org.apache.http.conn.ssl.TrustSelfSignedStrategy;
 import org.apache.http.entity.StringEntity;
+import org.apache.http.impl.auth.BasicScheme;
+import org.apache.http.impl.client.BasicAuthCache;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
@@ -53,10 +58,11 @@ class NewThread implements Runnable{
     Thread t;
     String XMLContent = null; // XMLContent
     CloseableHttpClient httpclient = null;
+    HttpClientContext localContext = null;
 
 
 
-    NewThread(String usernameT, String passwordT, String destIPT, ProtocolVersion httpVersionT, String sourceIPT,String XMLContentT,CloseableHttpClient httpclientT) {
+    NewThread(String usernameT, String passwordT, String destIPT, ProtocolVersion httpVersionT, String sourceIPT,String XMLContentT,CloseableHttpClient httpclientT,HttpClientContext localContextT) {
         // 创建新线程
         username = usernameT;
         password = passwordT;
@@ -68,6 +74,7 @@ class NewThread implements Runnable{
         sourceIP = sourceIPT;
         XMLContent = XMLContentT;
         httpclient = httpclientT;
+        localContext = localContextT;
 
         //System.out.println(XMLContent);
         t = new Thread(this, "Demo Thread");
@@ -104,7 +111,7 @@ class NewThread implements Runnable{
 
             CloseableHttpResponse response = null;
             try {
-                response = httpclient.execute(httppost);
+                response = httpclient.execute(httppost,localContext);
                 System.out.println(" execute!");
                 System.out.println(response.getStatusLine());
 
@@ -187,6 +194,7 @@ public class HTTPPost{
 
     static int postInLoop = 0;
 
+
     public static void main(String[] args) throws Exception {
 
         Options options = new Options();
@@ -267,8 +275,9 @@ public class HTTPPost{
 
         CredentialsProvider credsProvider = new BasicCredentialsProvider();
         CloseableHttpClient httpclient = null;
+        HttpHost target = null;
 //        UsernamePasswordCredentials creds = new UsernamePasswordCredentials(username, password);
-//        CloseableHttpClient httpclient =  null;
+
         PoolingHttpClientConnectionManager cm = new PoolingHttpClientConnectionManager();
 
 //        MultiThreadedHttpConnectionManager cm = new MultiThreadedHttpConnectionManager();
@@ -279,10 +288,12 @@ public class HTTPPost{
             if(ip.length>1){
                 port = Integer.parseInt(ip[1]);
             }
+
+            target = new HttpHost(ip[0], port, "https");
             credsProvider.setCredentials(
-                    new AuthScope(ip[0],port),
+                    new AuthScope(target.getHostName(), target.getPort()),
                     new UsernamePasswordCredentials(username, password));
-//            httpclient.getState().setCredentials(new AuthScope(ip[0], port, AuthScope.ANY_REALM), defaultcreds);
+
 
             try{
                 SSLContextBuilder builder = new SSLContextBuilder();
@@ -307,9 +318,12 @@ public class HTTPPost{
             if(ip.length>1){
                 port = Integer.parseInt(ip[1]);
             }
+            target = new HttpHost(ip[0], port, "http");
             credsProvider.setCredentials(
-                    new AuthScope(ip[0], port),//"10.208.128.232"
+                    new AuthScope(target.getHostName(), target.getPort()),//"10.208.128.232"
                     new UsernamePasswordCredentials(username, password));
+
+
             try{
                 httpclient = HttpClients.custom()
                         .setDefaultCredentialsProvider(credsProvider)
@@ -322,7 +336,19 @@ public class HTTPPost{
         }
 
 
+        // Create AuthCache instance Set all these to make UsernamePasswordCredentials confirm automatically
+        AuthCache authCache = new BasicAuthCache();
+        // Generate BASIC scheme object and add it to the local
+        // auth cache
+        BasicScheme basicAuth = new BasicScheme();
+        authCache.put(target, basicAuth);
+        // Add AuthCache to the execution context
+        HttpClientContext localContext = HttpClientContext.create();
+        localContext.setAuthCache(authCache);
+
+
         List<Element> entries = GetAllEntries(entriesFile);
+
 
         if(!cmd.hasOption("sourceIP")){
 
@@ -330,9 +356,10 @@ public class HTTPPost{
                 if(postInLoop == 0){
                     postInLoop = 20;
                     for(int i = 0; i<20 ; i++){
-                        System.out.println("postNumber"+postNumber);
+                        System.out.println("postNumber "+postNumber);
                         postNumber --;
-                        pool.execute(new NewThread(username,password,destURL,httpVersion, InetAddress.getLocalHost().getHostAddress(),GetOneEntries(entries,postNumber),httpclient));
+                        pool.execute(new NewThread(username,password,destURL,httpVersion, InetAddress.getLocalHost().getHostAddress(),GetOneEntries(entries,postNumber),httpclient,localContext));
+                        Thread.sleep(timeInterval*1000);
                     }
                 }
             }
@@ -351,17 +378,11 @@ public class HTTPPost{
         }else{
             String[] sourceIPs = cmd.getOptionValues("sourceIP");
             for(int i=0;i<sourceIPs.length;i++){
-                pool.execute(new NewThread(username,password,destURL,httpVersion,sourceIPs[i],GetOneEntries(entries,i),httpclient));
+                pool.execute(new NewThread(username,password,destURL,httpVersion,sourceIPs[i],GetOneEntries(entries,i),httpclient,localContext));
             }
             pool.shutdown();
             System.out.println("numberOfSuccessPost : " + NewThread.numberOfSuccess);
         }
-
-//        try {
-//            httpclient.close();
-//        } catch (IOException e) {
-//            e.printStackTrace();
-//        }
 
     }
 
