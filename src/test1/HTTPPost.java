@@ -8,6 +8,7 @@ import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.Options;
+import org.apache.commons.logging.impl.Log4JLogger;
 import org.apache.http.HttpHost;
 import org.apache.http.HttpVersion;
 import org.apache.http.ProtocolVersion;
@@ -29,6 +30,7 @@ import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
+import org.dom4j.io.SAXReader;
 import org.dom4j.Document;
 import org.dom4j.DocumentHelper;
 import org.dom4j.Element;
@@ -47,7 +49,7 @@ import static org.apache.http.client.utils.HttpClientUtils.closeQuietly;
 
 class NewThread implements Runnable{
 
-    static int numberOfSuccess = 0;
+    static volatile int numberOfSuccess = 0;
 
     String username = null;
     String password = null;
@@ -63,7 +65,7 @@ class NewThread implements Runnable{
 
 
     NewThread(String usernameT, String passwordT, String destIPT, ProtocolVersion httpVersionT, String sourceIPT,String XMLContentT,CloseableHttpClient httpclientT,HttpClientContext localContextT) {
-        // ´´½¨ÐÂÏß³Ì
+        // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ß³ï¿½
         username = usernameT;
         password = passwordT;
         destURL = destIPT;
@@ -77,8 +79,8 @@ class NewThread implements Runnable{
         localContext = localContextT;
 
         //System.out.println(XMLContent);
-        t = new Thread(this, "Demo Thread");
-        t.start(); // ¿ªÊ¼Ïß³Ì
+//        t = new Thread(this, "Demo Thread");
+//        t.start(); // ï¿½ï¿½Ê¼ï¿½ß³ï¿½
     }
 
     @Override
@@ -90,7 +92,7 @@ class NewThread implements Runnable{
         try {
             config = RequestConfig.custom()
                     .setLocalAddress(InetAddress.getByName(sourceIP))
-                    .setConnectTimeout(2000)
+                    .setConnectTimeout(500)
                     .build();
         } catch (UnknownHostException e) {
             e.printStackTrace();
@@ -128,7 +130,7 @@ class NewThread implements Runnable{
                     //Busy. Wait some time and retry every post
                     System.out.println("Server busy");
                     Thread.sleep(2000);//wait and retry
-                    response = httpclient.execute(httppost);
+//                    response = httpclient.execute(httppost);
                 }
             } catch (Exception e) {
                 e.printStackTrace();
@@ -156,74 +158,40 @@ class NewThread implements Runnable{
 
 }
 
-class XMLContent{
-    static String GetEntries(int num, String url){
-
-        Element entries = null;
-        String XMLStr = null;
-
-        try {
-            File f = new File(url);
-
-            SAXReader reader = new SAXReader();
-            Document doc = reader.read(f);
-            Element root = doc.getRootElement();
-
-            List<Element> infos = root.elements("userfw-entries");
-
-            if(infos.size() > 0){
-                num = num % infos.size();
-                entries = infos.get(num);
-            }
-
-            String e = entries.asXML();
-            Document document = DocumentHelper.parseText(e);
-
-            XMLStr = document.asXML();
-            //System.out.println(XMLStr);
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
-        return XMLStr;
-    }
-}
-
 public class HTTPPost{
 
-    static int postInLoop = 0;
+    static volatile int postInLoop = 0;
 
 
     public static void main(String[] args) throws Exception {
 
         Options options = new Options();
 
-        // Ìí¼Ó -postNumber ²ÎÊý
+        // ï¿½ï¿½ï¿½ -postNumber ï¿½ï¿½ï¿½ï¿½
         options.addOption("postNumber", true, "postNumber");
 
-        // Ìí¼Ó -timeInterval ²ÎÊý
+        // ï¿½ï¿½ï¿½ -timeInterval ï¿½ï¿½ï¿½ï¿½
         options.addOption("timeInterval", true, "timeInterval");
 
-        // Ìí¼Ó -sourceIP ²ÎÊý
+        // ï¿½ï¿½ï¿½ -sourceIP ï¿½ï¿½ï¿½ï¿½
         options.addOption("sourceIP",true,"Set source IPs eg: 192.168.0.10  192.138.0.15  192.168.0.27");
 
-        // Ìí¼Ó -h ²ÎÊý
+        // ï¿½ï¿½ï¿½ -h ï¿½ï¿½ï¿½ï¿½
         options.addOption("h", false, "Lists short help");
 
-        // Ìí¼Ó -u ²ÎÊý
+        // ï¿½ï¿½ï¿½ -u ï¿½ï¿½ï¿½ï¿½
         options.addOption("u", true, "Set Username");
 
-        // Ìí¼Ó -p ²ÎÊý
+        // ï¿½ï¿½ï¿½ -p ï¿½ï¿½ï¿½ï¿½
         options.addOption("p", true, "Set Password");
 
-        // Ìí¼Ó -t ²ÎÊý
+        // ï¿½ï¿½ï¿½ -t ï¿½ï¿½ï¿½ï¿½
         options.addOption("t", true, "Set the HTTP communication protocol for CIM connection eg: http1.0");
 
-        // Ìí¼Ó -e ²ÎÊý
+        // ï¿½ï¿½ï¿½ -e ï¿½ï¿½ï¿½ï¿½
         options.addOption("e", true, "Set the XML file address which contains lots of entries eg: C:\\Users\\cathym\\Documents\\perl\\haha.xml");
 
-        // Ìí¼Ó -destURL ²ÎÊý
+        // ï¿½ï¿½ï¿½ -destURL ï¿½ï¿½ï¿½ï¿½
         options.addOption("destURL", true, "Set destination URL eg: http://192.168.0.10:80");
 
         //get parameters
@@ -231,7 +199,7 @@ public class HTTPPost{
         CommandLine cmd = parser.parse(options, args);
 
         if(cmd.hasOption("h")) {
-            // ÕâÀïÏÔÊ¾¼ò¶ÌµÄ°ïÖúÐÅÏ¢
+            // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½ÌµÄ°ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢
             System.out.println("help help");
             //System.out.println("example:/n -u username /n -p password /n ");
         }
@@ -239,7 +207,7 @@ public class HTTPPost{
         //set http version
         String protocol = cmd.getOptionValue("t");
 
-        // ÉèÖÃÄ¬ÈÏµÄ HTTP ´«ÊäÐ­Òé
+        // ï¿½ï¿½ï¿½ï¿½Ä¬ï¿½Ïµï¿½ HTTP ï¿½ï¿½ï¿½ï¿½Ð­ï¿½ï¿½
         ProtocolVersion httpVersion = HttpVersion.HTTP_1_1;
         if(protocol.equals("http1.0")){
             httpVersion = HttpVersion.HTTP_1_0;
@@ -258,19 +226,19 @@ public class HTTPPost{
         String destURL = cmd.getOptionValue("destURL");
         String destIP[] = destURL.split("/");
 
-        int postNumber = Integer.parseInt(cmd.getOptionValue("postNumber"));
+         int postNumber = Integer.parseInt(cmd.getOptionValue("postNumber"));
 
         int timeInterval = Integer.parseInt(cmd.getOptionValue("timeInterval"));
 
         ThreadPoolExecutor pool = new ThreadPoolExecutor(4, 10000, 1, TimeUnit.MINUTES,
                 new LinkedBlockingQueue<Runnable>(),new ThreadPoolExecutor.DiscardOldestPolicy());
         /**
-         * µÚÒ»²ÎÊý£ºÖ¸µÄÊÇ±£ÁôµÄÏß³Ì³Ø´óÐ¡¡£
-         * µÚ¶þ²ÎÊý£ºÖ¸µÄÊÇÏß³Ì³ØµÄ×î´ó´óÐ¡¡£
-         * µÚÈý²ÎÊý£ºÏß³Ì³ØÎ¬»¤Ïß³ÌËùÔÊÐíµÄ¿ÕÏÐÊ±¼ä¡£
-         * µÚËÄ²ÎÊý£º Ïß³Ì³ØÎ¬»¤Ïß³ÌËùÔÊÐíµÄ¿ÕÏÐÊ±¼äµÄµ¥Î»¡£
-         * µÚÎå²ÎÊý£º ±íÊ¾´æ·ÅÈÎÎñµÄ¶ÓÁÐ¡£¡¡
-         * µÚÁù²ÎÊý£º Ïß³Ì³Ø¶Ô¾Ü¾øÈÎÎñµÄ´¦Àí²ßÂÔ£¬Ä¬ÈÏÖµThreadPoolExecutor.AbortPolicy()¡£
+         * ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¸ï¿½ï¿½ï¿½Ç±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ß³Ì³Ø´ï¿½Ð¡ï¿½ï¿½
+         * ï¿½Ú¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¸ï¿½ï¿½ï¿½ï¿½ï¿½ß³Ì³Øµï¿½ï¿½ï¿½ï¿½ï¿½Ð¡ï¿½ï¿½
+         * ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ß³Ì³ï¿½Î¬ï¿½ï¿½ï¿½ß³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿ï¿½ï¿½ï¿½Ê±ï¿½ä¡£
+         * ï¿½ï¿½ï¿½Ä²ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ß³Ì³ï¿½Î¬ï¿½ï¿½ï¿½ß³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿ï¿½ï¿½ï¿½Ê±ï¿½ï¿½Äµï¿½Î»ï¿½ï¿½
+         * ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¶ï¿½ï¿½Ð¡ï¿½ï¿½ï¿½
+         * ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ß³Ì³Ø¶Ô¾Ü¾ï¿½ï¿½ï¿½ï¿½ï¿½Ä´ï¿½ï¿½ï¿½ï¿½ï¿½Ô£ï¿½Ä¬ï¿½ï¿½ÖµThreadPoolExecutor.AbortPolicy()ï¿½ï¿½
          */
 
         CredentialsProvider credsProvider = new BasicCredentialsProvider();
@@ -347,7 +315,7 @@ public class HTTPPost{
         localContext.setAuthCache(authCache);
 
 
-        List<Element> entries = GetAllEntries(entriesFile);
+        List<Element> entries = XMLContent.GetAllEntries(entriesFile);
 
 
         if(!cmd.hasOption("sourceIP")){
@@ -358,12 +326,15 @@ public class HTTPPost{
                     for(int i = 0; i<20 ; i++){
                         System.out.println("postNumber "+postNumber);
                         postNumber --;
-                        pool.execute(new NewThread(username,password,destURL,httpVersion, InetAddress.getLocalHost().getHostAddress(),GetOneEntries(entries,postNumber),httpclient,localContext));
+//                        pool.execute(new NewThread(username,password,destURL,httpVersion, InetAddress.getLocalHost().getHostAddress(),XMLContent.GetOneEntries(entries,postNumber),httpclient,localContext));
+                        pool.execute(new NewThread(username,password,destURL,httpVersion, "127.0.0.1",XMLContent.GetOneEntries(entries,postNumber),httpclient,localContext));
                         Thread.sleep(timeInterval*1000);
                     }
                 }
             }
             pool.shutdown();
+
+            while(pool.getPoolSize()!=0);
             System.out.println("numberOfSuccessPost : "+NewThread.numberOfSuccess);
 
 //            for(int i = 0; i<postNumber; i++){
@@ -377,8 +348,10 @@ public class HTTPPost{
 //            System.out.println("numberOfSuccessPost : "+NewThread.numberOfSuccess);
         }else{
             String[] sourceIPs = cmd.getOptionValues("sourceIP");
+            System.out.println("sourceIPs.length : " + sourceIPs.length);
             for(int i=0;i<sourceIPs.length;i++){
-                pool.execute(new NewThread(username,password,destURL,httpVersion,sourceIPs[i],GetOneEntries(entries,i),httpclient,localContext));
+                System.out.println("first ");
+                pool.execute(new NewThread(username,password,destURL,httpVersion,sourceIPs[i],XMLContent.GetOneEntries(entries,i),httpclient,localContext));
             }
             pool.shutdown();
             System.out.println("numberOfSuccessPost : " + NewThread.numberOfSuccess);
@@ -387,38 +360,6 @@ public class HTTPPost{
     }
 
 
-    static List<Element> GetAllEntries(String url){
 
-        List<Element> infos = null;
-
-        try {
-            File f = new File(url);
-
-            SAXReader reader = new SAXReader();
-            Document doc = reader.read(f);
-            Element root = doc.getRootElement();
-
-            infos = root.elements("userfw-entries");
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return infos;
-    }
-
-    static String GetOneEntries(List<Element> infos, int num){
-        String XMLStr = null;
-        Element entries;
-        try{
-            num = num % infos.size();
-            entries = infos.get(num);
-            String e = entries.asXML();
-            Document document = DocumentHelper.parseText(e);
-
-            XMLStr = document.asXML();
-        }catch(Exception e){
-            e.printStackTrace();
-        }
-        return XMLStr;
-    }
 
 }
