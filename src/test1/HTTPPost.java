@@ -8,20 +8,20 @@ import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.Options;
-import org.apache.http.HttpResponse;
 import org.apache.http.HttpVersion;
 import org.apache.http.ProtocolVersion;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
-import org.apache.http.client.HttpClient;
 import org.apache.http.client.config.RequestConfig;
+import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
 import org.apache.http.conn.ssl.SSLContextBuilder;
 import org.apache.http.conn.ssl.TrustSelfSignedStrategy;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.BasicCredentialsProvider;
+import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.dom4j.Document;
@@ -52,9 +52,11 @@ class NewThread implements Runnable{
     ProtocolVersion httpVersion = HttpVersion.HTTP_1_0;  //HttpVersion.HTTP_1_1
     Thread t;
     String XMLContent = null; // XMLContent
-    HttpClient httpclient = null;
+    CloseableHttpClient httpclient = null;
 
-    NewThread(String usernameT, String passwordT, String destIPT, ProtocolVersion httpVersionT, String sourceIPT,String XMLContentT,HttpClient httpclientT) {
+
+
+    NewThread(String usernameT, String passwordT, String destIPT, ProtocolVersion httpVersionT, String sourceIPT,String XMLContentT,CloseableHttpClient httpclientT) {
         // 创建新线程
         username = usernameT;
         password = passwordT;
@@ -81,7 +83,6 @@ class NewThread implements Runnable{
         try {
             config = RequestConfig.custom()
                     .setLocalAddress(InetAddress.getByName(sourceIP))
-                    //.setSocketTimeout(2000)
                     .setConnectTimeout(2000)
                     .build();
         } catch (UnknownHostException e) {
@@ -100,9 +101,11 @@ class NewThread implements Runnable{
 
         try {
             System.out.println("executing request " + httppost.getURI());
-            HttpResponse response = null;
+
+            CloseableHttpResponse response = null;
             try {
                 response = httpclient.execute(httppost);
+                System.out.println(" execute!");
                 System.out.println(response.getStatusLine());
 
                 int code = response.getStatusLine().getStatusCode();
@@ -118,17 +121,18 @@ class NewThread implements Runnable{
                     //Busy. Wait some time and retry every post
                     System.out.println("Server busy");
                     Thread.sleep(2000);//wait and retry
-                    //response = httpclient.execute(httppost);
+                    response = httpclient.execute(httppost);
                 }
             } catch (Exception e) {
                 e.printStackTrace();
             } finally {
                 try {
 //                    httppost.releaseConnection();//
+//                    System.out.println(" close!");
                     if (response != null) {
                         closeQuietly(response);
                     }
-
+                    HTTPPost.postInLoop --;
                 } catch (NullPointerException e) {
                     e.printStackTrace();
                 }
@@ -180,6 +184,8 @@ class XMLContent{
 }
 
 public class HTTPPost{
+
+    static int postInLoop = 0;
 
     public static void main(String[] args) throws Exception {
 
@@ -248,7 +254,7 @@ public class HTTPPost{
 
         int timeInterval = Integer.parseInt(cmd.getOptionValue("timeInterval"));
 
-        ThreadPoolExecutor pool = new ThreadPoolExecutor(20, 10000, 1, TimeUnit.MINUTES,
+        ThreadPoolExecutor pool = new ThreadPoolExecutor(4, 10000, 1, TimeUnit.MINUTES,
                 new LinkedBlockingQueue<Runnable>(),new ThreadPoolExecutor.DiscardOldestPolicy());
         /**
          * 第一参数：指的是保留的线程池大小。
@@ -260,7 +266,8 @@ public class HTTPPost{
          */
 
         CredentialsProvider credsProvider = new BasicCredentialsProvider();
-        HttpClient httpclient = null;
+        CloseableHttpClient httpclient = null;
+//        UsernamePasswordCredentials creds = new UsernamePasswordCredentials(username, password);
 //        CloseableHttpClient httpclient =  null;
         PoolingHttpClientConnectionManager cm = new PoolingHttpClientConnectionManager();
 
@@ -275,17 +282,21 @@ public class HTTPPost{
             credsProvider.setCredentials(
                     new AuthScope(ip[0],port),
                     new UsernamePasswordCredentials(username, password));
+//            httpclient.getState().setCredentials(new AuthScope(ip[0], port, AuthScope.ANY_REALM), defaultcreds);
 
             try{
                 SSLContextBuilder builder = new SSLContextBuilder();
                 builder.loadTrustMaterial(null, new TrustSelfSignedStrategy());
                 SSLConnectionSocketFactory sslsf = new SSLConnectionSocketFactory(
                         builder.build(),SSLConnectionSocketFactory.ALLOW_ALL_HOSTNAME_VERIFIER);
+
                 httpclient = HttpClients.custom()
                         .setDefaultCredentialsProvider(credsProvider)
+//                        .setCredentials(new AuthScope(ip[0], port, AuthScope.ANY_REALM), defaultcreds)
                         .setSSLSocketFactory(sslsf)
                         .setConnectionManager(cm)
                         .build();
+//                httpclient.getParams().setAuthenticationPreemptive(true);
             }catch(Exception e){
                 e.printStackTrace();
             }
@@ -314,14 +325,29 @@ public class HTTPPost{
         List<Element> entries = GetAllEntries(entriesFile);
 
         if(!cmd.hasOption("sourceIP")){
-            for(int i = 0; i<postNumber; i++){
-                pool.execute(new NewThread(username,password,destURL,httpVersion, InetAddress.getLocalHost().getHostAddress(),GetOneEntries(entries,i),httpclient));
-                //new NewThread(username,password,destURL,httpVersion,InetAddress.getLocalHost().getHostAddress().toString(),GetOneEntries(entries,i),httpclient);
-                Thread.sleep(timeInterval*1000);
-                System.out.println(i);
+
+            while(postNumber>0){
+                if(postInLoop == 0){
+                    postInLoop = 20;
+                    for(int i = 0; i<20 ; i++){
+                        System.out.println("postNumber"+postNumber);
+                        postNumber --;
+                        pool.execute(new NewThread(username,password,destURL,httpVersion, InetAddress.getLocalHost().getHostAddress(),GetOneEntries(entries,postNumber),httpclient));
+                    }
+                }
             }
-            //pool.shutdown();
+            pool.shutdown();
             System.out.println("numberOfSuccessPost : "+NewThread.numberOfSuccess);
+
+//            for(int i = 0; i<postNumber; i++){
+//
+//                pool.execute(new NewThread(username,password,destURL,httpVersion, InetAddress.getLocalHost().getHostAddress(),GetOneEntries(entries,i),httpclient));
+//                //new NewThread(username,password,destURL,httpVersion,InetAddress.getLocalHost().getHostAddress().toString(),GetOneEntries(entries,i),httpclient);
+//                Thread.sleep(timeInterval*1000);
+//                System.out.println(i);
+//            }
+//            //pool.shutdown();
+//            System.out.println("numberOfSuccessPost : "+NewThread.numberOfSuccess);
         }else{
             String[] sourceIPs = cmd.getOptionValues("sourceIP");
             for(int i=0;i<sourceIPs.length;i++){
