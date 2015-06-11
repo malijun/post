@@ -8,7 +8,6 @@ import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.Options;
-import org.apache.commons.logging.impl.Log4JLogger;
 import org.apache.http.HttpHost;
 import org.apache.http.HttpVersion;
 import org.apache.http.ProtocolVersion;
@@ -30,13 +29,8 @@ import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
-import org.dom4j.io.SAXReader;
-import org.dom4j.Document;
-import org.dom4j.DocumentHelper;
 import org.dom4j.Element;
-import org.dom4j.io.SAXReader;
 
-import java.io.File;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.List;
@@ -65,7 +59,7 @@ class NewThread implements Runnable{
 
 
     NewThread(String usernameT, String passwordT, String destIPT, ProtocolVersion httpVersionT, String sourceIPT,String XMLContentT,CloseableHttpClient httpclientT,HttpClientContext localContextT) {
-        // �������߳�
+        // 创建新线程
         username = usernameT;
         password = passwordT;
         destURL = destIPT;
@@ -78,9 +72,8 @@ class NewThread implements Runnable{
         httpclient = httpclientT;
         localContext = localContextT;
 
-        //System.out.println(XMLContent);
 //        t = new Thread(this, "Demo Thread");
-//        t.start(); // ��ʼ�߳�
+//        t.start(); // 开始线程
     }
 
     @Override
@@ -92,7 +85,7 @@ class NewThread implements Runnable{
         try {
             config = RequestConfig.custom()
                     .setLocalAddress(InetAddress.getByName(sourceIP))
-                    .setConnectTimeout(500)
+                    .setConnectTimeout(2000)
                     .build();
         } catch (UnknownHostException e) {
             e.printStackTrace();
@@ -113,7 +106,7 @@ class NewThread implements Runnable{
 
             CloseableHttpResponse response = null;
             try {
-                response = httpclient.execute(httppost,localContext);
+                response = httpclient.execute(httppost);//,localContext);
                 System.out.println(" execute!");
                 System.out.println(response.getStatusLine());
 
@@ -130,7 +123,7 @@ class NewThread implements Runnable{
                     //Busy. Wait some time and retry every post
                     System.out.println("Server busy");
                     Thread.sleep(2000);//wait and retry
-//                    response = httpclient.execute(httppost);
+                    response = httpclient.execute(httppost);
                 }
             } catch (Exception e) {
                 e.printStackTrace();
@@ -140,17 +133,13 @@ class NewThread implements Runnable{
 //                    System.out.println(" close!");
                     if (response != null) {
                         closeQuietly(response);
+                        //response.close();
                     }
                     HTTPPost.postInLoop --;
                 } catch (NullPointerException e) {
                     e.printStackTrace();
                 }
             }
-//        } catch (ClientProtocolException e) {
-//            e.printStackTrace();
-//        } catch (IOException e){
-//            e.printStackTrace();
-//        }
         }catch(Exception e){
             e.printStackTrace();
         }
@@ -161,37 +150,28 @@ class NewThread implements Runnable{
 public class HTTPPost{
 
     static volatile int postInLoop = 0;
-
+    static GetXMLContent myXML = new GetXMLContent();
 
     public static void main(String[] args) throws Exception {
 
         Options options = new Options();
-
-        // ��� -postNumber ����
+        //  -postNumber parameter
         options.addOption("postNumber", true, "postNumber");
-
-        // ��� -timeInterval ����
+        //  -timeInterval parameter
         options.addOption("timeInterval", true, "timeInterval");
-
-        // ��� -sourceIP ����
+        //  -sourceIP parameter
         options.addOption("sourceIP",true,"Set source IPs eg: 192.168.0.10  192.138.0.15  192.168.0.27");
-
-        // ��� -h ����
+        //  -h parameter
         options.addOption("h", false, "Lists short help");
-
-        // ��� -u ����
+        //  -u parameter
         options.addOption("u", true, "Set Username");
-
-        // ��� -p ����
+        //  -p parameter
         options.addOption("p", true, "Set Password");
-
-        // ��� -t ����
+        //  -t parameter
         options.addOption("t", true, "Set the HTTP communication protocol for CIM connection eg: http1.0");
-
-        // ��� -e ����
+        //  -e parameter
         options.addOption("e", true, "Set the XML file address which contains lots of entries eg: C:\\Users\\cathym\\Documents\\perl\\haha.xml");
-
-        // ��� -destURL ����
+        //  -destURL parameter
         options.addOption("destURL", true, "Set destination URL eg: http://192.168.0.10:80");
 
         //get parameters
@@ -199,25 +179,23 @@ public class HTTPPost{
         CommandLine cmd = parser.parse(options, args);
 
         if(cmd.hasOption("h")) {
-            // ������ʾ��̵İ�����Ϣ
+            // 这里显示简短的帮助信息
             System.out.println("help help");
             //System.out.println("example:/n -u username /n -p password /n ");
         }
 
-        //set http version
+        //get http version
         String protocol = cmd.getOptionValue("t");
 
-        // ����Ĭ�ϵ� HTTP ����Э��
+        // set default HTTP protocol
         ProtocolVersion httpVersion = HttpVersion.HTTP_1_1;
         if(protocol.equals("http1.0")){
             httpVersion = HttpVersion.HTTP_1_0;
         }
 
-
         //set username and password
         String username = cmd.getOptionValue("u");
         String password = cmd.getOptionValue("p");
-
 
         //set entriesFile address
         String entriesFile = cmd.getOptionValue("e");
@@ -226,28 +204,26 @@ public class HTTPPost{
         String destURL = cmd.getOptionValue("destURL");
         String destIP[] = destURL.split("/");
 
-         int postNumber = Integer.parseInt(cmd.getOptionValue("postNumber"));
+        int postNumber = Integer.parseInt(cmd.getOptionValue("postNumber"));
 
         int timeInterval = Integer.parseInt(cmd.getOptionValue("timeInterval"));
 
         ThreadPoolExecutor pool = new ThreadPoolExecutor(4, 10000, 1, TimeUnit.MINUTES,
                 new LinkedBlockingQueue<Runnable>(),new ThreadPoolExecutor.DiscardOldestPolicy());
         /**
-         * ��һ������ָ���Ǳ������̳߳ش�С��
-         * �ڶ�������ָ�����̳߳ص�����С��
-         * �����������̳߳�ά���߳�������Ŀ���ʱ�䡣
-         * ���Ĳ����� �̳߳�ά���߳�������Ŀ���ʱ��ĵ�λ��
-         * ��������� ��ʾ�������Ķ��С���
-         * ���������� �̳߳ضԾܾ�����Ĵ�����ԣ�Ĭ��ֵThreadPoolExecutor.AbortPolicy()��
+         * 第一参数：指的是保留的线程池大小。
+         * 第二参数：指的是线程池的最大大小。
+         * 第三参数：线程池维护线程所允许的空闲时间。
+         * 第四参数： 线程池维护线程所允许的空闲时间的单位。
+         * 第五参数： 表示存放任务的队列。　
+         * 第六参数： 线程池对拒绝任务的处理策略，默认值ThreadPoolExecutor.AbortPolicy()。
          */
 
         CredentialsProvider credsProvider = new BasicCredentialsProvider();
         CloseableHttpClient httpclient = null;
         HttpHost target = null;
-//        UsernamePasswordCredentials creds = new UsernamePasswordCredentials(username, password);
 
         PoolingHttpClientConnectionManager cm = new PoolingHttpClientConnectionManager();
-
 //        MultiThreadedHttpConnectionManager cm = new MultiThreadedHttpConnectionManager();
 
         if(destIP[0].equals("https:")){
@@ -257,11 +233,10 @@ public class HTTPPost{
                 port = Integer.parseInt(ip[1]);
             }
 
-            target = new HttpHost(ip[0], port, "https");
+//            target = new HttpHost(ip[0], port, "http");
             credsProvider.setCredentials(
-                    new AuthScope(target.getHostName(), target.getPort()),
+                    new AuthScope(ip[0], port),
                     new UsernamePasswordCredentials(username, password));
-
 
             try{
                 SSLContextBuilder builder = new SSLContextBuilder();
@@ -271,11 +246,9 @@ public class HTTPPost{
 
                 httpclient = HttpClients.custom()
                         .setDefaultCredentialsProvider(credsProvider)
-//                        .setCredentials(new AuthScope(ip[0], port, AuthScope.ANY_REALM), defaultcreds)
                         .setSSLSocketFactory(sslsf)
                         .setConnectionManager(cm)
                         .build();
-//                httpclient.getParams().setAuthenticationPreemptive(true);
             }catch(Exception e){
                 e.printStackTrace();
             }
@@ -291,7 +264,6 @@ public class HTTPPost{
                     new AuthScope(target.getHostName(), target.getPort()),//"10.208.128.232"
                     new UsernamePasswordCredentials(username, password));
 
-
             try{
                 httpclient = HttpClients.custom()
                         .setDefaultCredentialsProvider(credsProvider)
@@ -303,20 +275,18 @@ public class HTTPPost{
             }
         }
 
-
-        // Create AuthCache instance Set all these to make UsernamePasswordCredentials confirm automatically
+        // Create AuthCache instance Set all these to achieve Preemptive Authentication（抢先认证）
         AuthCache authCache = new BasicAuthCache();
-        // Generate BASIC scheme object and add it to the local
-        // auth cache
+        // Generate BASIC scheme object and add it to the local auth cache
         BasicScheme basicAuth = new BasicScheme();
-        authCache.put(target, basicAuth);
+        if(target!=null){
+            authCache.put(target, basicAuth);
+        }
         // Add AuthCache to the execution context
         HttpClientContext localContext = HttpClientContext.create();
         localContext.setAuthCache(authCache);
 
-
-        List<Element> entries = XMLContent.GetAllEntries(entriesFile);
-
+        List<Element> entries = myXML.GetAllEntries(entriesFile);
 
         if(!cmd.hasOption("sourceIP")){
 
@@ -326,40 +296,24 @@ public class HTTPPost{
                     for(int i = 0; i<20 ; i++){
                         System.out.println("postNumber "+postNumber);
                         postNumber --;
-//                        pool.execute(new NewThread(username,password,destURL,httpVersion, InetAddress.getLocalHost().getHostAddress(),XMLContent.GetOneEntries(entries,postNumber),httpclient,localContext));
-                        pool.execute(new NewThread(username,password,destURL,httpVersion, "127.0.0.1",XMLContent.GetOneEntries(entries,postNumber),httpclient,localContext));
+                        pool.execute(new NewThread(username,password,destURL,httpVersion, InetAddress.getLocalHost().getHostAddress(),myXML.GetOneEntries(entries, postNumber),httpclient,localContext));
                         Thread.sleep(timeInterval*1000);
                     }
                 }
             }
-            pool.shutdown();
-
-            while(pool.getPoolSize()!=0);
+            pool.shutdown();//stop to accept new threads
+            while(pool.getPoolSize()!=0);//wait until all threads are done
             System.out.println("numberOfSuccessPost : "+NewThread.numberOfSuccess);
 
-//            for(int i = 0; i<postNumber; i++){
-//
-//                pool.execute(new NewThread(username,password,destURL,httpVersion, InetAddress.getLocalHost().getHostAddress(),GetOneEntries(entries,i),httpclient));
-//                //new NewThread(username,password,destURL,httpVersion,InetAddress.getLocalHost().getHostAddress().toString(),GetOneEntries(entries,i),httpclient);
-//                Thread.sleep(timeInterval*1000);
-//                System.out.println(i);
-//            }
-//            //pool.shutdown();
-//            System.out.println("numberOfSuccessPost : "+NewThread.numberOfSuccess);
         }else{
             String[] sourceIPs = cmd.getOptionValues("sourceIP");
-            System.out.println("sourceIPs.length : " + sourceIPs.length);
             for(int i=0;i<sourceIPs.length;i++){
-                System.out.println("first ");
-                pool.execute(new NewThread(username,password,destURL,httpVersion,sourceIPs[i],XMLContent.GetOneEntries(entries,i),httpclient,localContext));
+                pool.execute(new NewThread(username,password,destURL,httpVersion,sourceIPs[i],myXML.GetOneEntries(entries, i),httpclient,localContext));
             }
-            pool.shutdown();
+            pool.shutdown();//stop to accept new threads
+            while(pool.getPoolSize()!=0);//wait until all threads are done
             System.out.println("numberOfSuccessPost : " + NewThread.numberOfSuccess);
         }
 
     }
-
-
-
-
 }
