@@ -19,9 +19,13 @@ import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.protocol.HttpClientContext;
+import org.apache.http.config.Registry;
+import org.apache.http.config.RegistryBuilder;
+import org.apache.http.conn.socket.ConnectionSocketFactory;
+import org.apache.http.conn.socket.PlainConnectionSocketFactory;
 import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
 import org.apache.http.conn.ssl.SSLContextBuilder;
-import org.apache.http.conn.ssl.TrustSelfSignedStrategy;
+import org.apache.http.conn.ssl.TrustStrategy;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.auth.BasicScheme;
 import org.apache.http.impl.client.BasicAuthCache;
@@ -31,8 +35,12 @@ import org.apache.http.impl.client.HttpClients;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.dom4j.Element;
 
+import javax.net.ssl.HostnameVerifier;
+import javax.net.ssl.SSLContext;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.security.cert.CertificateException;
+import java.security.cert.X509Certificate;
 import java.util.List;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -51,7 +59,6 @@ class NewThread implements Runnable{
     String destURL  = null;
     String sourceIP = null;
     ProtocolVersion httpVersion = HttpVersion.HTTP_1_0;  //HttpVersion.HTTP_1_1
-    Thread t;
     String XMLContent = null; // XMLContent
     CloseableHttpClient httpclient = null;
     HttpClientContext localContext = null;
@@ -64,28 +71,24 @@ class NewThread implements Runnable{
         password = passwordT;
         destURL = destIPT;
         destIP = destIPT.split("/");
-        //System.out.println("destIP[0]   "+(destIP[0].equals("https:")));
 
         httpVersion = httpVersionT;
         sourceIP = sourceIPT;
         XMLContent = XMLContentT;
         httpclient = httpclientT;
         localContext = localContextT;
-
-//        t = new Thread(this, "Demo Thread");
-//        t.start(); // 开始线程
+//      ThreadPool's execute will start a thread. We don't need to new a thread and start here   t.start();
     }
 
     @Override
     public void run() {
 
-        //RIGHT PART
         HttpPost httppost = new HttpPost(destURL); //https://iam-fed.juniper.net/auth/ilogin.html
         RequestConfig config = null;
         try {
             config = RequestConfig.custom()
                     .setLocalAddress(InetAddress.getByName(sourceIP))
-                    .setConnectTimeout(2000)
+                    .setConnectTimeout(500)
                     .build();
         } catch (UnknownHostException e) {
             e.printStackTrace();
@@ -106,36 +109,40 @@ class NewThread implements Runnable{
 
             CloseableHttpResponse response = null;
             try {
-                response = httpclient.execute(httppost);//,localContext);
-                System.out.println(" execute!");
-                System.out.println(response.getStatusLine());
+                while(true){
+                    response = httpclient.execute(httppost,localContext);
 
-                int code = response.getStatusLine().getStatusCode();
-                if (code == 200) {
-                    numberOfSuccess++;
-                } else if (code == 400) {
-                    //Format issue. Stop this thread and exam the format
-                    System.out.println("XML Format issue");
-                    //exam your format
-                    System.out.println(httppost.getEntity());
-                    //response = httpclient.execute(httppost);
-                } else if (code == 503) {
-                    //Busy. Wait some time and retry every post
-                    System.out.println("Server busy");
-                    Thread.sleep(2000);//wait and retry
-                    response = httpclient.execute(httppost);
+                    System.out.println("execute!");
+                    System.out.println(response.getStatusLine());
+
+                    int code = response.getStatusLine().getStatusCode();
+                    if (code == 200) {
+                        numberOfSuccess++;
+                        break;
+                    } else if (code == 400) {
+                        //Format issue. Stop this thread and exam the format
+                        System.out.println("XML Format issue");
+                        //exam your format
+                        System.out.println(httppost.getEntity());
+                        //response = httpclient.execute(httppost);
+                        break;
+                    } else if (code == 503) {
+                        System.out.println("Server busy");
+                        Thread.sleep(2000);//wait and retry
+                        //wait for 2s and retry again till get response
+                    }else{
+                        break;
+                    }
                 }
+
             } catch (Exception e) {
                 e.printStackTrace();
             } finally {
                 try {
-//                    httppost.releaseConnection();//
-//                    System.out.println(" close!");
+                    HTTPPost.postInLoop --;
                     if (response != null) {
                         closeQuietly(response);
-                        //response.close();
                     }
-                    HTTPPost.postInLoop --;
                 } catch (NullPointerException e) {
                     e.printStackTrace();
                 }
@@ -221,10 +228,8 @@ public class HTTPPost{
 
         CredentialsProvider credsProvider = new BasicCredentialsProvider();
         CloseableHttpClient httpclient = null;
-        HttpHost target = null;
+        HttpHost target;
 
-        PoolingHttpClientConnectionManager cm = new PoolingHttpClientConnectionManager();
-//        MultiThreadedHttpConnectionManager cm = new MultiThreadedHttpConnectionManager();
 
         if(destIP[0].equals("https:")){
             String[] ip = destIP[2].split(":");
@@ -233,16 +238,36 @@ public class HTTPPost{
                 port = Integer.parseInt(ip[1]);
             }
 
-//            target = new HttpHost(ip[0], port, "http");
+            target = new HttpHost(ip[0], port, "https");
             credsProvider.setCredentials(
                     new AuthScope(ip[0], port),
                     new UsernamePasswordCredentials(username, password));
-
             try{
-                SSLContextBuilder builder = new SSLContextBuilder();
-                builder.loadTrustMaterial(null, new TrustSelfSignedStrategy());
-                SSLConnectionSocketFactory sslsf = new SSLConnectionSocketFactory(
-                        builder.build(),SSLConnectionSocketFactory.ALLOW_ALL_HOSTNAME_VERIFIER);
+
+//之前可用的版本  共四行
+//                SSLContextBuilder builder = new SSLContextBuilder();
+//                builder.loadTrustMaterial(null, new TrustSelfSignedStrategy());
+//                SSLConnectionSocketFactory sslsf = new SSLConnectionSocketFactory(
+//                        builder.build(),SSLConnectionSocketFactory.ALLOW_ALL_HOSTNAME_VERIFIER);
+
+
+                SSLContext sslContext = new SSLContextBuilder().loadTrustMaterial(null, new TrustStrategy() {
+                    public boolean isTrusted(X509Certificate[] arg0, String arg1) throws CertificateException {
+                        return true;
+                    }
+                }).build();
+                // don't check Hostnames, either.
+                //      -- use SSLConnectionSocketFactory.getDefaultHostnameVerifier(), if you don't want to weaken
+                HostnameVerifier hostnameVerifier = SSLConnectionSocketFactory.ALLOW_ALL_HOSTNAME_VERIFIER;
+                SSLConnectionSocketFactory sslsf = new SSLConnectionSocketFactory(sslContext, hostnameVerifier);
+
+                Registry<ConnectionSocketFactory> socketFactoryRegistry = RegistryBuilder.<ConnectionSocketFactory>create()
+                        .register("http", PlainConnectionSocketFactory.getSocketFactory())
+                        .register("https", sslsf)
+                        .build();
+
+                PoolingHttpClientConnectionManager cm = new PoolingHttpClientConnectionManager(socketFactoryRegistry);
+                //very important! It supports multithread https post. cm needs a SocketFactoryRegistry parameter here
 
                 httpclient = HttpClients.custom()
                         .setDefaultCredentialsProvider(credsProvider)
@@ -261,10 +286,13 @@ public class HTTPPost{
             }
             target = new HttpHost(ip[0], port, "http");
             credsProvider.setCredentials(
-                    new AuthScope(target.getHostName(), target.getPort()),//"10.208.128.232"
+                    new AuthScope(target.getHostName(), target.getPort()),
                     new UsernamePasswordCredentials(username, password));
 
             try{
+
+                PoolingHttpClientConnectionManager cm = new PoolingHttpClientConnectionManager();
+
                 httpclient = HttpClients.custom()
                         .setDefaultCredentialsProvider(credsProvider)
                         .setConnectionManager(cm)
@@ -279,9 +307,8 @@ public class HTTPPost{
         AuthCache authCache = new BasicAuthCache();
         // Generate BASIC scheme object and add it to the local auth cache
         BasicScheme basicAuth = new BasicScheme();
-        if(target!=null){
-            authCache.put(target, basicAuth);
-        }
+        authCache.put(target, basicAuth);
+
         // Add AuthCache to the execution context
         HttpClientContext localContext = HttpClientContext.create();
         localContext.setAuthCache(authCache);
@@ -289,7 +316,6 @@ public class HTTPPost{
         List<Element> entries = myXML.GetAllEntries(entriesFile);
 
         if(!cmd.hasOption("sourceIP")){
-
             while(postNumber>0){
                 if(postInLoop == 0){
                     postInLoop = 20;
@@ -301,19 +327,15 @@ public class HTTPPost{
                     }
                 }
             }
-            pool.shutdown();//stop to accept new threads
-            while(pool.getPoolSize()!=0);//wait until all threads are done
-            System.out.println("numberOfSuccessPost : "+NewThread.numberOfSuccess);
-
         }else{
             String[] sourceIPs = cmd.getOptionValues("sourceIP");
             for(int i=0;i<sourceIPs.length;i++){
                 pool.execute(new NewThread(username,password,destURL,httpVersion,sourceIPs[i],myXML.GetOneEntries(entries, i),httpclient,localContext));
             }
-            pool.shutdown();//stop to accept new threads
-            while(pool.getPoolSize()!=0);//wait until all threads are done
-            System.out.println("numberOfSuccessPost : " + NewThread.numberOfSuccess);
         }
+        pool.shutdown();//stop to accept new threads
+        while(pool.getPoolSize()!=0){};//wait until all threads are done
+        System.out.println("numberOfSuccessPost : "+NewThread.numberOfSuccess);
 
     }
 }
